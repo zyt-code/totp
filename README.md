@@ -23,7 +23,8 @@ Android/  预留，尚未实现
 
 ```bash
 cd MacOS
-./run.sh
+./run.sh                    # 调试构建，产物在 MacOS/.build/TOTPApp.app
+./run.sh --release --install # 发布构建，安装到 /Applications/TOTPApp.app
 ```
 
 `run.sh` 会编译、组装 `.app`、签名并启动。签名优先使用钥匙串中名为 `LocalDev` 的代码签名证书；不存在时降级为 ad-hoc 签名（会重复触发钥匙串授权弹窗）。

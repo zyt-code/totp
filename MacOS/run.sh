@@ -4,8 +4,18 @@ set -euo pipefail
 # 无论从哪里调用，都在脚本所在目录内工作
 cd "$(dirname "$0")"
 
-echo "==> 编译 TOTPApp..."
-swift build --product TOTPApp
+CONFIG="debug"
+INSTALL=0
+for arg in "$@"; do
+    case "$arg" in
+        --release) CONFIG="release" ;;
+        --install) INSTALL=1 ;;
+        *) echo "用法: ./run.sh [--release] [--install]"; exit 1 ;;
+    esac
+done
+
+echo "==> 编译 TOTPApp（${CONFIG}）..."
+swift build -c "$CONFIG" --product TOTPApp
 
 APP_BUNDLE=".build/TOTPApp.app"
 CONTENTS="$APP_BUNDLE/Contents"
@@ -16,7 +26,7 @@ echo "==> 组装 App Bundle 结构..."
 rm -rf "$APP_BUNDLE"
 mkdir -p "$MACOS" "$RESOURCES"
 
-cp ".build/debug/TOTPApp" "$MACOS/TOTPApp"
+cp ".build/$CONFIG/TOTPApp" "$MACOS/TOTPApp"
 
 if [ ! -f "Resources/AppIcon.icns" ]; then
     echo "==> 图标缺失，生成 AppIcon.icns..."
@@ -58,10 +68,19 @@ else
     codesign --force --deep --sign - "${APP_BUNDLE}"
 fi
 
+TARGET="$APP_BUNDLE"
+if [ "$INSTALL" -eq 1 ]; then
+    DEST="/Applications/TOTPApp.app"
+    echo "==> 安装到 ${DEST}..."
+    rm -rf "$DEST"
+    cp -R "$APP_BUNDLE" "$DEST"
+    TARGET="$DEST"
+fi
+
 echo "==> 重启应用..."
 pkill -x TOTPApp || true
 # 等旧进程真正退出，否则 open 会撞上进程未释放的竞态（错误 -600）
 while pgrep -x TOTPApp >/dev/null 2>&1; do sleep 0.1; done
-open "${APP_BUNDLE}"
+open "$TARGET"
 
-echo "==> 启动成功！"
+echo "==> 启动成功：${TARGET}"
