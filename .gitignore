@@ -1,0 +1,13 @@
+.DS_Store
+
+# 构建产物
+.build/
+MacOS/.build/
+MacOS/Resources/AppIcon.iconset/
+
+# Xcode
+*.xcuserdatad/
+*.xcworkspace/xcuserdata/
+
+# 本地工具配置
+.dsh/

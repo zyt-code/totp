@@ -1,0 +1,45 @@
+schema: spec-driven
+
+# ==========================================
+# 1. Project Context & Description
+# ==========================================
+context: |
+  【项目定位与形态】
+  本项目是一个高度注重隐私与离线安全的 macOS 菜单栏（Menu Bar Status Item）轻量级 TOTP 双重认证应用。
+  - 呈现形态：常驻 macOS 菜单栏（无 Dock 图标，LSUIElement = YES），主交互基于 MenuBarExtra / NSPopover 弹窗。
+  - 核心菜单与视图：
+    * 状态栏主入口菜单项包括：TOTP 列表、分隔线、新增、设置、退出。
+    * 列表交互：鼠标悬浮展示对应项的 6 位/8 位 TOTP 码、环形进度条动画（包含剩余秒数），单击该行直接将 TOTP 码复制到系统剪贴板。
+    * 新增机制：支持手动录入（站点名称、Secret、算法、位数），支持解析导入标准 CSV 密码库，支持通过屏幕取词/截屏使用 Vision 自动识别屏幕上的二维码。
+  - 架构哲学：Local-first 纯离线架构，完全无后端、零网络请求、零第三方埋点。
+  - 安全红线：
+    * 严禁明文持久化存储 Secret，敏感密钥必须持久化至 macOS Keychain 或通过 CryptoKit (AES-GCM) 加密存储。
+    * 剪贴板复制后需考虑短时间自动清除或标记隐私，避免敏感信息外泄。
+
+  【技术栈与工程约束】
+  - 开发环境与语言：macOS (Target >= 14.0+), Swift 5.10+ / Swift 6
+  - UI 框架：SwiftUI (结合 MenuBarExtra 或 AppKit NSStatusItem 容器封装)
+  - 核心算法与识别：
+    * 动态码计算：基于 Apple 原生 `CryptoKit` 实现 RFC 6238 (TOTP) / RFC 4226 (HOTP)
+    * 屏幕二维码扫描：基于 `ScreenCaptureKit` (需处理屏幕录制权限) + `Vision` 框架 (`VNDetectBarcodesRequest`)
+  - 测试框架：Swift Testing (`import Testing`) 或 `XCTest`，算法与解析必须保证 100% 覆盖率
+  - 错误处理：统一使用 `Result<T, AppError>` 或 Swift 原生强类型 `throws`，严禁 force unwrap (`!`)
+
+# ==========================================
+# 2. 工件与任务规则
+# ==========================================
+rules:
+  proposal:
+    - 涉及屏幕扫描时，必须在方案中单独评估 macOS 权限授权处理流程（Screen Recording Permission）与未授权兜底交互
+    - 涉及导入 CSV 时，必须定义支持的 CSV Schema 格式映射与异常数据跳过逻辑
+    - 方案必须评估算法兼容性（RFC 6238 / RFC 4226，支持 SHA1/SHA256/SHA512）
+  tasks:
+    - 算法计算必须附带 RFC 6238 官方测试向量（Test Vectors）的单元测试
+    - 单个任务粒度保持独立可测试，UI 视图与核心 TOTP Engine 必须解耦
+
+operations:
+  apply:
+    guidance:
+      - 修改核心逻辑后，必须先运行 `swift test` 验证通过方可提交
+      - 涉及 AppKit / SwiftUI 混合生命周期代码时，必须确保在主线程（@MainActor）刷新 UI
+      - 如需运行查看真机效果，优先使用 `./run.sh` 打包签名运行，避免裸二进制重复触发 Keychain 授权弹窗。
