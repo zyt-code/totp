@@ -1,57 +1,10 @@
-# app-skeleton Specification
+# totp-core Specification
 
 ## Purpose
 
-提供一个可启动的 macOS 菜单栏应用壳，以及与界面解耦、可单独验证的离线 TOTP 计算能力。它只覆盖启动、退出和验证码计算，不包含账户持久化。
+双端共用的离线 TOTP 规则：RFC 4226 / RFC 6238 计算、otpauth URI 解析、Base32 Secret 校验，以及密钥不得进入文本。macOS 与 Android 客户端都必须遵守。它不约束界面、存储介质或权限。
 
 ## Requirements
-
-### Requirement: Menu bar shell
-
-The app MUST launch as a macOS 14 or newer menu-bar-only process, with no Dock icon. The popover MUST contain the TOTP account list and a footer toolbar with an enabled Add button, an enabled Settings button, and an enabled Quit button. Settings MUST open the settings window and MUST NOT create, import, scan, copy, or persist an account. Add MUST open the manual account entry window.
-
-#### Scenario: Launch shows the placeholder menu
-
-- **WHEN** the app launches
-- **THEN** it appears only as a menu-bar item, shows the account list and the footer toolbar, and does not show a Dock icon
-
-#### Scenario: Placeholder items do nothing
-
-- **WHEN** the user activates Settings
-- **THEN** no account is created, imported, scanned, copied, or persisted
-
-#### Scenario: Quit ends the process
-
-- **WHEN** the user activates Quit
-- **THEN** the app process exits
-
-### Requirement: Status item appearance
-
-The menu-bar status item MUST use a monochrome template symbol so macOS tints it for light and dark menu bars. It MUST NOT use a colored bitmap that ignores menu-bar appearance.
-
-#### Scenario: Symbol shown
-
-- **WHEN** the app launches
-- **THEN** the status item shows a lock-with-clock symbol
-
-#### Scenario: Both menu bar appearances
-
-- **WHEN** the menu bar switches between light and dark appearance
-- **THEN** the status item stays legible because macOS applies its own tint
-
-### Requirement: Return to menu-bar-only after editing
-
-Opening an editing window, either add-account or settings, MUST make the app a regular app so the window accepts keyboard input and shows a Dock icon. When it closes and no other visible editing window remains, the app MUST return to a menu-bar-only policy so the Dock icon disappears. This MUST hold for cancel, successful save, Escape, and the window close button.
-
-#### Scenario: Window opens
-
-- **WHEN** the user opens the add-account window
-- **THEN** the app becomes a regular app with a Dock icon and the window accepts typing
-
-#### Scenario: Window closes
-
-- **WHEN** the add-account window closes by any supported route
-- **THEN** the app returns to menu-bar-only and the Dock icon disappears
 
 ### Requirement: HOTP codes
 
@@ -109,3 +62,50 @@ Secret material MUST NOT adopt a text-description interface that can include the
 
 - **WHEN** secret material is interpolated into a string, printed, or inspected through reflection available to app code
 - **THEN** the resulting text does not contain the secret bytes or their hex or Base32 encoding
+
+### Requirement: Parse otpauth TOTP URI
+
+The parser MUST accept `otpauth://totp/` URIs. It MUST read `secret`, optional `issuer`, optional label account name, `algorithm`, `digits`, and `period`. Missing algorithm, digits, and period MUST default to SHA-1, 6, and 30. The display name MUST use the issuer and account name when both exist, otherwise the one that exists.
+
+#### Scenario: Full URI
+
+- **WHEN** the URI is `otpauth://totp/GitHub:ada?secret=[密钥]
+- **THEN** parsing returns name "GitHub ada", that secret, SHA-256, 8 digits, and period 45
+
+#### Scenario: Defaults
+
+- **WHEN** the URI contains only a secret and label
+- **THEN** parsing returns SHA-1, 6 digits, and period 30
+
+### Requirement: Reject unsupported URI values
+
+The parser MUST reject a URI that is not `otpauth://totp`, lacks a secret, or requests an algorithm other than SHA-1, SHA-256, or SHA-512, a digit count other than 6 or 8, or a period below 1.
+
+#### Scenario: Missing secret
+
+- **WHEN** the URI has no secret parameter
+- **THEN** parsing fails and returns no fields
+
+#### Scenario: Unsupported algorithm
+
+- **WHEN** the algorithm is `SHA384`
+- **THEN** parsing fails and returns no fields
+
+### Requirement: Base32 secret validation
+
+The secret field MUST ignore spaces and hyphens, decode the remaining text as Base32, and reject empty input, characters outside the Base32 alphabet, and invalid padding. A rejected secret MUST NOT be saved.
+
+#### Scenario: Spaces are ignored
+
+- **WHEN** the secret is "GEZD GNBV GY3T QOJQ GEZD GNBV GY3T QOJQ"
+- **THEN** it decodes to the bytes of ASCII "12345678901234567890"
+
+#### Scenario: Invalid character
+
+- **WHEN** the secret contains "1"
+- **THEN** validation fails and nothing is saved
+
+#### Scenario: Empty secret
+
+- **WHEN** the secret is empty or only spaces
+- **THEN** validation fails and nothing is saved

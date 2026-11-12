@@ -2,7 +2,7 @@
 
 ## Purpose
 
-让用户手动录入一个 TOTP 账户，校验 Base32 Secret，并把账户保存到现有仓库。录入窗口只负责新增，不包含屏幕扫描或 CSV 导入。
+让用户手动录入一个 TOTP 账户，并保存到现有仓库。Base32 是否合法只按 `totp-core` 判断。录入窗口只负责新增，不包含屏幕扫描或 CSV 导入。
 
 ## Requirements
 
@@ -79,24 +79,19 @@ A successful screen scan MUST replace the name, secret, algorithm, digits, and p
 - **WHEN** scanning returns a payload that is not a valid otpauth TOTP URI
 - **THEN** the form values remain unchanged and the reason is shown
 
-### Requirement: Base32 secret validation
+### Requirement: Invalid secret keeps the window open
 
-The secret field MUST ignore spaces and hyphens, decode the remaining text as Base32, and reject empty input, characters outside the Base32 alphabet, and invalid padding. A rejected secret MUST NOT be saved. While the secret is non-empty and invalid, the form MUST show one caption-sized red message below the entry card without closing the window.
-
-#### Scenario: Spaces are ignored
-
-- **WHEN** the secret is "GEZD GNBV GY3T QOJQ GEZD GNBV GY3T QOJQ"
-- **THEN** it decodes to the bytes of ASCII "12345678901234567890"
+A secret that `totp-core` rejects MUST NOT be saved. While the secret is non-empty and invalid, the form MUST show one caption-sized red message below the entry card and MUST keep the add window open.
 
 #### Scenario: Invalid character
 
 - **WHEN** the secret contains "1"
-- **THEN** validation fails, a red caption is shown, and nothing is saved
+- **THEN** a red caption is shown, nothing is saved, and the add window stays open
 
 #### Scenario: Empty secret
 
 - **WHEN** the secret is empty or only spaces
-- **THEN** validation fails and nothing is saved
+- **THEN** nothing is saved and the add window stays open
 
 ### Requirement: Save refreshes the list
 

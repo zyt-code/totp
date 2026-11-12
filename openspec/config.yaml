@@ -1,0 +1,16 @@
+schema: spec-driven
+
+context: |
+  项目背景见仓库根目录 README.md。规格只写在 `openspec/specs/totp-core/`、`openspec/specs/macos/` 或 `openspec/specs/android/`。
+
+rules:
+  proposal:
+    - 变更归入 `specs/totp-core/`、`specs/macos/` 或 `specs/android/` 之一，不在这些目录外新建规格
+    - macOS 屏幕扫描必须单独写屏幕录制权限；未授权不得截屏
+  tasks:
+    - 改算法或解析时，任务指向 `specs/totp-core/` 的既有规则，不另写一套
+
+operations:
+  apply:
+    guidance:
+      - macOS 真机运行用 `MacOS/run.sh`，不要直接跑未签名二进制

@@ -5,8 +5,9 @@
 ## 目录结构
 
 ```
-MacOS/    macOS 14+ 菜单栏应用（Swift Package）
-Android/  预留，尚未实现
+MacOS/     macOS 14+ 菜单栏应用（Swift / SwiftUI）
+Android/   Android 客户端（Kotlin / Jetpack Compose，尚未实现）
+openspec/  双端规格根目录
 ```
 
 ## 功能（macOS）
@@ -39,11 +40,10 @@ cd MacOS
 
 ## 规格与变更流程
 
-项目使用 [OpenSpec](https://github.com/Fission-AI/OpenSpec) 管理规格，规格根目录在 `MacOS/openspec`：
+项目使用 [OpenSpec](https://github.com/Fission-AI/OpenSpec) 管理规格。规格在仓库根目录的 `openspec/`：`specs/totp-core` 为双端通用规则，`specs/macos` 为 macOS 客户端。在仓库根目录执行：
 
 ```bash
-cd MacOS
-openspec list
+openspec list --specs
 openspec validate --specs --strict
 ```
 
