@@ -3,6 +3,9 @@
 # 构建产物
 .build/
 MacOS/.build/
+Android/.gradle/
+Android/**/build/
+Android/local.properties
 MacOS/Resources/AppIcon.iconset/
 
 # Xcode
