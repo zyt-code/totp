@@ -83,6 +83,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.totp.core.Secret
+import kotlinx.coroutines.delay
 import app.totp.core.totp
 
 /** 莫兰迪色系，按服务商名称稳定取色。 */
@@ -112,6 +113,15 @@ fun HomeScreen(model: HomeModel, onScan: () -> Unit, onOpenSettings: () -> Unit)
     var query by remember { mutableStateOf("") }
     var pendingRename by remember { mutableStateOf<StoredAccount?>(null) }
     var pendingDelete by remember { mutableStateOf<StoredAccount?>(null) }
+    var copiedId by remember { mutableStateOf<String?>(null) }
+
+    // 复制后短暂显示「已复制」，避免点了没反应。
+    LaunchedEffect(copiedId) {
+        if (copiedId != null) {
+            delay(1_200)
+            copiedId = null
+        }
+    }
 
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -242,7 +252,11 @@ fun HomeScreen(model: HomeModel, onScan: () -> Unit, onOpenSettings: () -> Unit)
                         account = account,
                         grouped = model.grouped,
                         now = model.now,
-                        onClick = { model.copy(account) },
+                        copied = copiedId == account.id,
+                        onClick = {
+                            model.copy(account)
+                            copiedId = account.id
+                        },
                         onLongClick = { pendingRename = account },
                     )
                 }
@@ -330,6 +344,7 @@ private fun AccountCard(
     account: StoredAccount,
     grouped: Boolean,
     now: Long,
+    copied: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
@@ -367,16 +382,22 @@ private fun AccountCard(
                     )
                 }
                 Spacer(Modifier.height(6.dp))
-                Text(
-                    formatCode(code, grouped),
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 1.5.sp,
-                        fontWeight = FontWeight.Medium,
-                    ),
-                    color = accent,
-                    maxLines = 1,
+                val codeStyle = MaterialTheme.typography.headlineMedium.copy(
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 1.5.sp,
+                    fontWeight = FontWeight.Medium,
                 )
+                AnimatedContent(
+                    targetState = copied,
+                    transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(120)) },
+                    label = "copy-feedback",
+                ) { justCopied ->
+                    if (justCopied) {
+                        Text("已复制", style = codeStyle, color = MaterialTheme.colorScheme.primary)
+                    } else {
+                        Text(formatCode(code, grouped), style = codeStyle, color = accent)
+                    }
+                }
             }
             CountdownRing(left, period, accent)
         }

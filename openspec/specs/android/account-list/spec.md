@@ -31,7 +31,12 @@ When 5 or fewer whole seconds remain in the period, the ring and the code MUST u
 
 ### Requirement: Copy clears after 30 seconds
 
-Tapping a card MUST copy that card's current ungrouped code to the clipboard. When auto-clear is enabled, the app MUST clear the clipboard after 30 seconds only if it still contains that same code.
+Tapping a card MUST copy that card's current ungrouped code to the clipboard. The card MUST confirm the copy by replacing the code with "已复制" for about 1.2 seconds, then show the code again. When auto-clear is enabled, the app MUST clear the clipboard after 30 seconds only if it still contains that same code.
+
+#### Scenario: Copy shows confirmation
+
+- **WHEN** the user taps a card
+- **THEN** the card shows "已复制" instead of the code and returns to the code within about 1.2 seconds
 
 #### Scenario: Matching clipboard is cleared
 
