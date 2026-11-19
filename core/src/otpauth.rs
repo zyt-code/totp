@@ -23,7 +23,7 @@ pub(crate) fn parse(text: &str) -> Result<ParsedAccount, CoreError> {
     let mut algorithm = HashAlgorithm::Sha1;
     let mut digits = 6i32;
     let mut period = 30i32;
-    // `query_pairs()` 按 form 编码把 `+` 当空格（design 决定 11）；secret 例外，`+` 不是 Base32 字符，
+    // 表单编码把 `+` 当空格（design 决定 11）：issuer 等字段沿用；secret 例外，`+` 不是 Base32 字符，
     // 先把 `+` 转成 %2B 再解析，让密钥拿到原样 `+` 交给 Base32 拒绝
     let query = url.query().unwrap_or_default().replace('+', "%2B");
     for (key, value) in url::form_urlencoded::parse(query.as_bytes()) {
@@ -91,7 +91,7 @@ pub(crate) fn parse(text: &str) -> Result<ParsedAccount, CoreError> {
     })
 }
 
-/// 仅测试用：生成 otpauth URI 供 round-trip 测试；生产端暂无调用方，也不导出 FFI。
+/// 仅测试用：生成 otpauth URI 供 round-trip 测试。
 #[cfg(test)]
 pub(crate) fn format(account: &ParsedAccount) -> String {
     let label = if account.account_name.is_empty() {

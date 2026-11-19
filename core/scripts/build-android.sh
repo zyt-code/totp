@@ -32,13 +32,16 @@ if ! rustup target list --installed | grep -qx aarch64-linux-android; then
     exit 1
 fi
 
-# cargo-ndk 需要 NDK 路径：ANDROID_NDK_HOME 直接指向 NDK 目录，否则在 SDK 下挑最新版本
+# cargo-ndk 需要 NDK 路径：ANDROID_NDK_HOME 可直指 NDK，也兼容旧用法（指向版本目录的父目录）
 NDK_HOME="${ANDROID_NDK_HOME:-}"
-if [ -z "$NDK_HOME" ]; then
+if [ -n "$NDK_HOME" ] && [ ! -f "$NDK_HOME/source.properties" ]; then
+    NDK_HOME="$(ls -d "$NDK_HOME"/* 2>/dev/null | sort -V | tail -1 || true)"
+fi
+if [ -z "$NDK_HOME" ] && [ -z "${ANDROID_NDK_HOME:-}" ]; then
     NDK_HOME="$(ls -d "${ANDROID_HOME:-$HOME/Library/Android/sdk}"/ndk/* 2>/dev/null | sort -V | tail -1 || true)"
 fi
 if [ -z "$NDK_HOME" ] || [ ! -f "$NDK_HOME/source.properties" ] || [ ! -d "$NDK_HOME/toolchains" ]; then
-    echo "找不到可用的 Android NDK：${NDK_HOME:-未设置}（ANDROID_NDK_HOME 应指向 NDK 目录，或设置 ANDROID_HOME）" >&2
+    echo "找不到可用的 Android NDK：${ANDROID_NDK_HOME:-未设置}（ANDROID_NDK_HOME 应指向 NDK 或包含 NDK 版本的目录，或设置 ANDROID_HOME）" >&2
     exit 1
 fi
 export ANDROID_NDK_HOME="$NDK_HOME"

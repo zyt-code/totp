@@ -115,6 +115,11 @@ The secret field MUST ignore spaces and hyphens, decode the remaining text as Ba
 - **WHEN** the secret is empty or only spaces
 - **THEN** validation fails and nothing is saved
 
+#### Scenario: Plus is rejected
+
+- **WHEN** the secret contains a literal `+` or a percent-encoded `%2B`
+- **THEN** validation fails and nothing is saved
+
 ### Requirement: Display name normalization
 
 Both clients MUST derive the displayed title and subtitle with one shared rule. The core MUST split the stored site name at its first colon when that colon is not the first character, otherwise at its first space. The client MUST use a non-empty stored account name as the subtitle and MUST fall back to the split-off part. When every token in the subtitle is the same and there are at least two, the core MUST keep that token once.
