@@ -32,14 +32,16 @@ if ! rustup target list --installed | grep -qx aarch64-linux-android; then
     exit 1
 fi
 
-# cargo-ndk 需要 SDK 或 NDK 路径；优先 ANDROID_NDK_HOME
-NDK_ROOT="${ANDROID_NDK_HOME:-${ANDROID_HOME:-$HOME/Library/Android/sdk}/ndk}"
-if [ ! -d "$NDK_ROOT" ]; then
-    echo "找不到 Android NDK：${NDK_ROOT}（设置 ANDROID_NDK_HOME 或 ANDROID_HOME）" >&2
+# cargo-ndk 需要 NDK 路径：ANDROID_NDK_HOME 直接指向 NDK 目录，否则在 SDK 下挑最新版本
+NDK_HOME="${ANDROID_NDK_HOME:-}"
+if [ -z "$NDK_HOME" ]; then
+    NDK_HOME="$(ls -d "${ANDROID_HOME:-$HOME/Library/Android/sdk}"/ndk/* 2>/dev/null | sort -V | tail -1 || true)"
+fi
+if [ -z "$NDK_HOME" ] || [ ! -f "$NDK_HOME/source.properties" ] || [ ! -d "$NDK_HOME/toolchains" ]; then
+    echo "找不到可用的 Android NDK：${NDK_HOME:-未设置}（ANDROID_NDK_HOME 应指向 NDK 目录，或设置 ANDROID_HOME）" >&2
     exit 1
 fi
-NDK_VERSIONED="$(ls -d "$NDK_ROOT"/* 2>/dev/null | sort -V | tail -1)"
-export ANDROID_NDK_HOME="$NDK_VERSIONED"
+export ANDROID_NDK_HOME="$NDK_HOME"
 echo "==> 使用 NDK：$ANDROID_NDK_HOME"
 
 echo "==> 编译 $ABI .so"
@@ -47,8 +49,9 @@ rm -rf "$JNI_DIR"
 cargo ndk -t "$ABI" -o "$JNI_DIR" build --release --lib
 test -f "$SO"
 
-echo "==> 生成 Kotlin 绑定"
-cargo build --release --lib
+echo "==> 编译宿主库与 uniffi-bindgen"
+cargo build --release --lib --bin uniffi-bindgen
+test -x target/release/uniffi-bindgen
 rm -rf "$KOTLIN_DIR/app/totp/core/ffi"
 ./target/release/uniffi-bindgen generate \
     --library target/release/libtotp_core.dylib \

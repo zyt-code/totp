@@ -46,6 +46,10 @@ lipo -create -output target/universal/libtotp_core.a \
     "target/aarch64-apple-darwin/release/libtotp_core.a" \
     "target/x86_64-apple-darwin/release/libtotp_core.a"
 
+echo "==> 编译宿主 uniffi-bindgen"
+cargo build --release --bin uniffi-bindgen
+test -x target/release/uniffi-bindgen
+
 echo "==> 生成 Swift 绑定"
 rm -rf "$BINDINGS_DIR"
 mkdir -p "$BINDINGS_DIR"

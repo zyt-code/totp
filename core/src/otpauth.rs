@@ -1,9 +1,11 @@
+#[cfg(test)]
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use url::Url;
 
 use crate::model::{CoreError, HashAlgorithm, ParsedAccount};
 
 /// 只保留 RFC 3986 的 unreserved，其余全部百分号编码；空格是 `%20` 而不是 `+`。
+#[cfg(test)]
 const ESCAPE: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'-')
     .remove(b'.')
@@ -21,10 +23,16 @@ pub(crate) fn parse(text: &str) -> Result<ParsedAccount, CoreError> {
     let mut algorithm = HashAlgorithm::Sha1;
     let mut digits = 6i32;
     let mut period = 30i32;
-    for (key, value) in url.query_pairs() {
-        // 保留两端既有行为：query 里的 `+` 当空格（design 决定 11）
-        let value = value.replace('+', " ");
-        match key.as_ref() {
+    // `query_pairs()` 按 form 编码把 `+` 当空格（design 决定 11）；secret 例外，`+` 不是 Base32 字符，
+    // 先把 `+` 转成 %2B 再解析，让密钥拿到原样 `+` 交给 Base32 拒绝
+    let query = url.query().unwrap_or_default().replace('+', "%2B");
+    for (key, value) in url::form_urlencoded::parse(query.as_bytes()) {
+        let key = key.as_ref();
+        let value = match key {
+            "secret" => value.into_owned(),
+            _ => value.replace('+', " "),
+        };
+        match key {
             "secret" => secret = Some(value),
             "issuer" => issuer = non_empty(value.trim()),
             "algorithm" => {
@@ -83,6 +91,8 @@ pub(crate) fn parse(text: &str) -> Result<ParsedAccount, CoreError> {
     })
 }
 
+/// 仅测试用：生成 otpauth URI 供 round-trip 测试；生产端暂无调用方，也不导出 FFI。
+#[cfg(test)]
 pub(crate) fn format(account: &ParsedAccount) -> String {
     let label = if account.account_name.is_empty() {
         escape(&account.issuer)
@@ -103,6 +113,7 @@ pub(crate) fn format(account: &ParsedAccount) -> String {
     )
 }
 
+#[cfg(test)]
 fn escape(text: &str) -> String {
     utf8_percent_encode(text, ESCAPE).to_string()
 }
@@ -216,5 +227,19 @@ mod tests {
     #[test]
     fn rejects_secret_outside_base32() {
         assert!(parse("otpauth://totp/ada?secret=GEZD1").is_err());
+    }
+
+    #[test]
+    fn rejects_plus_in_secret_instead_of_treating_it_as_space() {
+        // `+` 不是 Base32 字符；若当空格忽略，"JBSW Y3DP" 会被静默接受成另一把密钥
+        assert!(matches!(
+            parse("otpauth://totp/ada?secret=JBSW+Y3DP"),
+            Err(CoreError::InvalidSecret)
+        ));
+        // 百分号编码的 `+` 走同一条路径，也必须原样拒绝
+        assert!(matches!(
+            parse("otpauth://totp/ada?secret=JBSW%2BY3DP"),
+            Err(CoreError::InvalidSecret)
+        ));
     }
 }

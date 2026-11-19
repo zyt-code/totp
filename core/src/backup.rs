@@ -6,10 +6,10 @@ const FORMAT: &str = "totp-backup";
 const VERSION: u32 = 2;
 
 #[derive(Serialize, Deserialize)]
-struct Document {
+struct Document<T> {
     format: String,
     version: u32,
-    accounts: Vec<Entry>,
+    accounts: Vec<T>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -42,7 +42,8 @@ pub(crate) fn export(accounts: &[AccountParams]) -> Result<String, CoreError> {
 }
 
 pub(crate) fn import(text: &str) -> Result<BackupImport, CoreError> {
-    let document: Document = serde_json::from_str(text).map_err(|_| {
+    // 先解析外层信封，保证 format/version 错误仍是格式错误；单条账户坏掉只计入 skipped
+    let document: Document<serde_json::Value> = serde_json::from_str(text).map_err(|_| {
         CoreError::BackupFormat(
             "不是 2.0 的 JSON 备份：需要 format=totp-backup、version=2 的 JSON 文件".into(),
         )
@@ -56,8 +57,8 @@ pub(crate) fn import(text: &str) -> Result<BackupImport, CoreError> {
 
     let mut accounts = Vec::with_capacity(document.accounts.len());
     let mut skipped = 0i32;
-    for entry in document.accounts {
-        match accepted(entry) {
+    for value in document.accounts {
+        match serde_json::from_value::<Entry>(value).ok().and_then(accepted) {
             Some(account) => accounts.push(account),
             None => skipped += 1,
         }
@@ -158,6 +159,22 @@ mod tests {
         let imported = import(json).unwrap();
         assert_eq!(imported.accounts.len(), 1);
         assert_eq!(imported.skipped, 1);
+    }
+
+    #[test]
+    fn malformed_account_is_skipped() {
+        let json = r#"{
+          "format": "totp-backup",
+          "version": 2,
+          "accounts": [
+            {"site_name":"A","account_name":"a","secret":"GEZDGNBVGY3TQOJQ","algorithm":"SHA1","digits":6,"period":30},
+            {"site_name":"B","account_name":"b","secret":"GEZDGNBVGY3TQOJQ","algorithm":"SHA1","digits":"6","period":30},
+            {"site_name":"C","secret":"GEZDGNBVGY3TQOJQ","algorithm":"SHA1","digits":6,"period":30}
+          ]
+        }"#;
+        let imported = import(json).unwrap();
+        assert_eq!(imported.accounts.len(), 1);
+        assert_eq!(imported.skipped, 2);
     }
 
     #[test]

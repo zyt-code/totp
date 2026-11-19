@@ -117,7 +117,7 @@ The secret field MUST ignore spaces and hyphens, decode the remaining text as Ba
 
 ### Requirement: Display name normalization
 
-Both clients MUST derive the displayed title and subtitle with one shared rule. The core MUST split the stored site name at its first colon when that colon is not the first character, otherwise at its first space. The client MUST use a non-empty stored account name as the subtitle and MUST fall back to the split-off part. When the split-off part repeats the same token two or more times, the core MUST keep that token once.
+Both clients MUST derive the displayed title and subtitle with one shared rule. The core MUST split the stored site name at its first colon when that colon is not the first character, otherwise at its first space. The client MUST use a non-empty stored account name as the subtitle and MUST fall back to the split-off part. When every token in the subtitle is the same and there are at least two, the core MUST keep that token once.
 
 #### Scenario: Colon wins
 
@@ -132,6 +132,11 @@ Both clients MUST derive the displayed title and subtitle with one shared rule. 
 #### Scenario: Repeated account token collapses
 
 - **WHEN** the stored site name is `GitHub:ada ada` and the stored account name is empty
+- **THEN** the subtitle is `ada`
+
+#### Scenario: Stored repeated account token collapses
+
+- **WHEN** the stored site name is `GitHub` and the stored account name is `ada ada`
 - **THEN** the subtitle is `ada`
 
 #### Scenario: Stored account name is preferred

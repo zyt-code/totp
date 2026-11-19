@@ -5,7 +5,7 @@ pub(crate) fn display(site_name: &str, account_name: &str) -> DisplayTitle {
     let (title, implied) = split(site_name);
     let stored = account_name.trim();
     let subtitle = if !stored.is_empty() {
-        Some(stored.to_string())
+        Some(collapse(stored))
     } else if implied.is_empty() {
         None
     } else {
@@ -82,6 +82,14 @@ mod tests {
         assert_eq!(
             expect("GitHub:ada", "ada@example.com"),
             ("GitHub".into(), Some("ada@example.com".into()))
+        );
+    }
+
+    #[test]
+    fn stored_repeated_account_token_collapses() {
+        assert_eq!(
+            expect("GitHub", "ada ada"),
+            ("GitHub".into(), Some("ada".into()))
         );
     }
 

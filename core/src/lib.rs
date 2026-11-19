@@ -21,12 +21,6 @@ pub fn parse_otpauth_uri(uri: String) -> Result<ParsedAccount, CoreError> {
     otpauth::parse(&uri)
 }
 
-/// 把账户序列化为 `otpauth://totp/` URI。
-#[uniffi::export]
-pub fn format_otpauth_uri(account: ParsedAccount) -> String {
-    otpauth::format(&account)
-}
-
 /// 账户卡片的标题与副标题。
 #[uniffi::export]
 pub fn display_title(site_name: String, account_name: String) -> DisplayTitle {
