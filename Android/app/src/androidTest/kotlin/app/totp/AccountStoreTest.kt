@@ -3,9 +3,8 @@ package app.totp
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import app.totp.core.HashAlgorithm
-import app.totp.core.OtpauthFields
-import app.totp.core.decodeBase32
+import app.totp.core.ffi.HashAlgorithm
+import app.totp.core.ffi.ParsedAccount
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -23,21 +22,38 @@ class AccountStoreTest {
     @After
     fun close() = database.close()
 
+    private fun parsed(issuer: String = "GitHub", accountName: String = "ada") = ParsedAccount(
+        issuer = issuer,
+        accountName = accountName,
+        secret = "12345678901234567890".toByteArray(),
+        algorithm = HashAlgorithm.SHA1,
+        digits = 6,
+        period = 30,
+    )
+
     @Test
     fun secretRoundTripsEncrypted() = runBlocking {
-        store.add(OtpauthFields("GitHub ada", "GEZDGNBV", HashAlgorithm.SHA1, 6, 30))
+        store.add(parsed())
         val loaded = store.accounts().single()
         assertEquals("GitHub", loaded.siteName)
         assertEquals("ada", loaded.username)
-        assertEquals(decodeBase32("GEZDGNBV").toList(), loaded.secret.toList())
+        assertEquals("12345678901234567890", String(loaded.secret))
 
         val onDisk = database.accounts().secret(loaded.id)!!.ciphertext
-        assertFalse(onDisk.contentEquals(decodeBase32("GEZDGNBV")))
+        assertFalse(onDisk.contentEquals("12345678901234567890".toByteArray()))
+    }
+
+    @Test
+    fun parsedLabelWithoutIssuerIsSplit() = runBlocking {
+        store.add(parsed(issuer = "", accountName = "GitHub ada"))
+        val loaded = store.accounts().single()
+        assertEquals("GitHub", loaded.siteName)
+        assertEquals("ada", loaded.username)
     }
 
     @Test
     fun missingSecretIsSkipped() = runBlocking {
-        store.add(OtpauthFields("GitHub", "GEZDGNBV", HashAlgorithm.SHA1, 6, 30))
+        store.add(parsed())
         val id = store.accounts().single().id
         database.accounts().deleteSecret(id)
         assertEquals(emptyList<StoredAccount>(), store.accounts())
@@ -45,7 +61,7 @@ class AccountStoreTest {
 
     @Test
     fun deleteRemovesMetadataAndSecret() = runBlocking {
-        store.add(OtpauthFields("GitHub", "GEZDGNBV", HashAlgorithm.SHA1, 6, 30))
+        store.add(parsed())
         val id = store.accounts().single().id
         store.delete(id)
         assertNull(database.accounts().byId(id))
@@ -54,7 +70,7 @@ class AccountStoreTest {
 
     @Test
     fun renameSplitsAndRejectsBlank() = runBlocking {
-        store.add(OtpauthFields("GitHub ada", "GEZDGNBV", HashAlgorithm.SHA1, 6, 30))
+        store.add(parsed())
         val id = store.accounts().single().id
         assertEquals(true, store.rename(id, "GitLab ada"))
         assertEquals("GitLab ada", store.accounts().single().displayName)
@@ -64,8 +80,8 @@ class AccountStoreTest {
 
     @Test
     fun listingKeepsInsertionOrder() = runBlocking {
-        store.add(OtpauthFields("First", "GEZDGNBV", HashAlgorithm.SHA1, 6, 30))
-        store.add(OtpauthFields("Second", "GEZDGNBV", HashAlgorithm.SHA1, 6, 30))
+        store.add(parsed(issuer = "First", accountName = ""))
+        store.add(parsed(issuer = "Second", accountName = ""))
         assertEquals(listOf("First", "Second"), store.accounts().map { it.siteName })
     }
 }

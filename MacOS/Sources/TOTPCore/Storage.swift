@@ -1,8 +1,14 @@
 import Foundation
 
+// 存储层只认字节：密钥不进文本层（core 侧同样只以字节跨边界）。
+public enum AppError: Error, Equatable, Sendable {
+    case blankSiteName
+    case invalidSecret
+}
+
 public protocol SecretStore: Sendable {
-    func save(id: String, secret: Secret) throws
-    func load(id: String) throws -> Secret?
+    func save(id: String, secret: Data) throws
+    func load(id: String) throws -> Data?
     func delete(id: String) throws
 }
 
@@ -12,16 +18,38 @@ public final class MemorySecretStore: SecretStore, @unchecked Sendable {
 
     public init() {}
 
-    public func save(id: String, secret: Secret) {
-        secrets[id] = secret.bytes
+    public func save(id: String, secret: Data) {
+        secrets[id] = secret
     }
 
-    public func load(id: String) -> Secret? {
-        secrets[id].map(Secret.init(bytes:))
+    public func load(id: String) -> Data? {
+        secrets[id]
     }
 
     public func delete(id: String) {
         secrets[id] = nil
+    }
+}
+
+// 绑定里的 HashAlgorithm 不带 Codable：元数据落盘沿用旧的字符串取值（sha1/sha256/sha512）。
+extension HashAlgorithm: Codable {
+    public init(from decoder: Decoder) throws {
+        switch try decoder.singleValueContainer().decode(String.self) {
+        case "sha1": self = .sha1
+        case "sha256": self = .sha256
+        case "sha512": self = .sha512
+        default: throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "未知算法"))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        let name = switch self {
+        case .sha1: "sha1"
+        case .sha256: "sha256"
+        case .sha512: "sha512"
+        }
+        try container.encode(name)
     }
 }
 
@@ -76,19 +104,19 @@ public final class MemoryMetadataRepository: AccountMetadataRepository, @uncheck
 public struct KeychainSecretStore: SecretStore {
     public init() {}
 
-    public func save(id: String, secret: Secret) throws {
+    public func save(id: String, secret: Data) throws {
         try delete(id: id)
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: Self.service,
             kSecAttrAccount: id,
-            kSecValueData: secret.bytes,
+            kSecValueData: secret,
         ]
         let status = SecItemAdd(query as CFDictionary, nil)
         guard status == errSecSuccess else { throw KeychainError(status: status) }
     }
 
-    public func load(id: String) throws -> Secret? {
+    public func load(id: String) throws -> Data? {
         let query: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: Self.service,
@@ -100,7 +128,7 @@ public struct KeychainSecretStore: SecretStore {
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         if status == errSecItemNotFound { return nil }
         guard status == errSecSuccess, let data = item as? Data else { throw KeychainError(status: status) }
-        return Secret(bytes: data)
+        return data
     }
 
     public func delete(id: String) throws {
@@ -174,9 +202,9 @@ public func saveAccount(
 ) throws -> AccountMetadata {
     let site = siteName.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !site.isEmpty else { throw AppError.blankSiteName }
-    let decoded = try decodeBase32(secret)
+    guard let decoded = try? SecretText.decode(secret) else { throw AppError.invalidSecret }
     let id = UUID().uuidString
-    try secrets.save(id: id, secret: Secret(bytes: decoded))
+    try secrets.save(id: id, secret: decoded)
     let metadata = AccountMetadata(
         id: id,
         siteName: site,

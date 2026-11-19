@@ -22,6 +22,7 @@ struct AccountList: View {
     @State private var deleting: TOTPAccount?
 
     var body: some View {
+        let codes = codes(at: tick)
         VStack(spacing: 0) {
             Group {
                 if accounts.isEmpty {
@@ -29,7 +30,7 @@ struct AccountList: View {
                 } else {
                     VStack(spacing: 4) {
                         ForEach(accounts) { account in
-                            row(account)
+                            row(account, code: codes[account.id])
                         }
                     }
                     .padding(8)
@@ -99,16 +100,23 @@ struct AccountList: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func row(_ account: TOTPAccount) -> some View {
-        let time = Int(tick.timeIntervalSince1970)
-        let remaining = remainingSeconds(time: time, period: account.period)
-        let code = try? currentCode(account: account, time: time)
+    // 每秒只跨一次边界：整列表一次批量算码，不逐账户调用。
+    private func codes(at date: Date) -> [String: OtpCodeResult] {
+        let results = generateCodesBatch(
+            accounts: accounts.map(\.params),
+            unixTime: Int64(date.timeIntervalSince1970)
+        )
+        return Dictionary(uniqueKeysWithValues: results.map { ($0.id, $0) })
+    }
+
+    private func row(_ account: TOTPAccount, code: OtpCodeResult?) -> some View {
+        let remaining = Int(code?.remainingSeconds ?? 0)
         let hovering = hoveredID == account.id
-        let parts = displayParts(siteName: account.siteName, username: account.username)
-        let warning = remaining <= 5
+        let parts = displayTitle(siteName: account.siteName, accountName: account.username)
+        let warning = remaining <= 5 && code != nil
         let copied = copiedID == account.id
         return Button {
-            copy(code, for: account.id)
+            copy(code?.code, for: account.id)
         } label: {
             HStack(spacing: 10) {
                 Text(parts.title.first.map(String.init) ?? "?")
@@ -128,11 +136,11 @@ struct AccountList: View {
                 }
                 Spacer(minLength: 8)
                 if let code {
-                    Text(formattedCode(code, grouped: groupCodes))
+                    Text(groupedCode(code.code, grouped: groupCodes))
                         .font(.title3.monospacedDigit())
                         .foregroundStyle(warning ? Color.orange : Color.primary)
                 }
-                ring(remaining: remaining, fraction: ringFraction(time: time, period: account.period), warning: warning)
+                ring(remaining: remaining, fraction: Double(remaining) / Double(code?.period ?? 1), warning: warning)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
@@ -147,7 +155,7 @@ struct AccountList: View {
             hoveredID = inside ? account.id : (hoveredID == account.id ? nil : hoveredID)
         }
         .contextMenu {
-            Button("复制验证码") { copy(code, for: account.id) }
+            Button("复制验证码") { copy(code?.code, for: account.id) }
             Button("复制账号名") { clipboard.write(account.username) }
                 .disabled(account.username.isEmpty)
             Divider()

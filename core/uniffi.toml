@@ -1,0 +1,5 @@
+[bindings.kotlin]
+# 生成到 app.totp.core.ffi，和 Android 模块的包名对齐；cdylib_name 决定 JNA 加载的库名，
+# 与 cargo-ndk 产出的 libtotp_core.so 一致。
+package_name = "app.totp.core.ffi"
+cdylib_name = "totp_core"

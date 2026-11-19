@@ -120,12 +120,12 @@ struct TOTPApp: App {
 
     private func scanNow() async {
         do {
-            let fields = try await ScreenQRScanner.scan()
-            displayName = fields.name
-            secret = fields.secret
-            algorithm = fields.algorithm
-            digits = fields.digits
-            period = fields.period
+            let parsed = try await ScreenQRScanner.scan()
+            displayName = accountDisplayName(parsed)
+            secret = SecretText.encode(parsed.secret)
+            algorithm = parsed.algorithm
+            digits = Int(parsed.digits)
+            period = Int(parsed.period)
             formError = nil
         } catch ScreenScanError.permission {
             return

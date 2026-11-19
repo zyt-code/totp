@@ -8,6 +8,13 @@ Android/**/build/
 Android/local.properties
 MacOS/Resources/AppIcon.iconset/
 
+# Rust core 与生成产物（由 core/scripts/build-*.sh 生成，不入库）
+core/target/
+MacOS/Frameworks/
+MacOS/Sources/TOTPCoreBindings/
+Android/core/src/main/jniLibs/
+Android/core/src/main/kotlin/app/totp/core/ffi/
+
 # Xcode
 *.xcuserdatad/
 *.xcworkspace/xcuserdata/

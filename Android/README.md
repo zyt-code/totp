@@ -1,6 +1,6 @@
 # Android
 
-Kotlin + Jetpack Compose 的离线 TOTP 客户端。算法、Base32 和 `otpauth://totp/` 解析在 `:core`，与 `openspec/specs/totp-core` 一致，不另写一套规则。
+Kotlin + Jetpack Compose 的离线 TOTP 客户端。算法、Base32、`otpauth://totp/` 解析与备份序列化在仓库根 `core/`（Rust），经 UniFFI 生成 Kotlin 绑定到 `:core` 模块；与 `openspec/specs/totp-core` 一致，不另写一套规则。
 
 ## 权限与安全
 
@@ -15,17 +15,29 @@ Kotlin + Jetpack Compose 的离线 TOTP 客户端。算法、Base32 和 `otpauth
 
 ## 备份
 
-导出为 UTF-8 文本，一行一条 `otpauth://totp` URI，和 macOS 端的备份格式相同，可以互相导入。
+导出为 JSON 文档（`format=totp-backup`、`version=2`），和 macOS 端的格式相同，可以互相导入。导入会逐条校验，坏账户跳过并计数；1.0 的「每行一条 URI」文本文件会被拒绝并提示期望的格式。
 
 ## 构建与测试
 
+先构建核心产物（`.so` 与 Kotlin 绑定不入库）：
+
+```bash
+core/scripts/build-android.sh
+```
+
+然后：
+
 ```bash
 cd Android
-./gradlew :core:test :app:testDebugUnitTest   # 29 个 JVM 单元测试
 ./gradlew :app:assembleDebug                  # 产物 app/build/outputs/apk/debug/
 ./gradlew :app:lintDebug                      # 静态检查
 ./gradlew :app:connectedDebugAndroidTest      # 需要设备或模拟器
 ```
 
-需要本机 Android SDK（`compileSdk` 37，`minSdk` 26）。`AccountStoreTest`（Keystore 加密往返、配对与删除）在 `app/src/androidTest`，属于仪器测试，需要设备或模拟器。
+算法向量、URI 解析、备份往返的单元测试在 Rust 侧，随核心一起跑：
 
+```bash
+cd core && cargo test
+```
+
+需要本机 Android SDK（`compileSdk` 37，`minSdk` 26）、JDK 21+、NDK r28 以上和 `cargo-ndk`。`:core` 现在是 Android library（承载 jniLibs 与 JNA 绑定），它的测试只能在真机/模拟器上跑；JVM 单元测试已随算法一起迁到 Rust。`AccountStoreTest`（Keystore 加密往返、配对与删除）在 `app/src/androidTest`，属于仪器测试。

@@ -2,9 +2,9 @@ package app.totp
 
 import android.graphics.Bitmap
 import android.net.Uri
-import app.totp.core.OtpauthFields
-import app.totp.core.OtpException
-import app.totp.core.parseOtpauth
+import app.totp.core.ffi.CoreException
+import app.totp.core.ffi.ParsedAccount
+import app.totp.core.ffi.parseOtpauthUri
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -12,15 +12,15 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 sealed interface CaptureResult {
-    data class Saved(val fields: OtpauthFields) : CaptureResult
+    data class Saved(val account: ParsedAccount) : CaptureResult
     data class Rejected(val reason: String) : CaptureResult
 }
 
 fun acceptPayloads(payloads: List<String>): CaptureResult {
     val accepted = payloads.mapNotNull { payload ->
         try {
-            parseOtpauth(payload)
-        } catch (_: OtpException) {
+            parseOtpauthUri(payload)
+        } catch (_: CoreException) {
             null
         }
     }

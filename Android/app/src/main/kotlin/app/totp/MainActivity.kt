@@ -44,10 +44,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import app.totp.core.Secret
-import app.totp.core.classifyBackup
-import app.totp.core.otpauthBackup
-import app.totp.core.totp
+import app.totp.core.ffi.CoreException
+import app.totp.core.ffi.exportBackupJson
+import app.totp.core.ffi.generateCode
+import app.totp.core.ffi.importBackupJson
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -106,7 +106,7 @@ private fun App(store: AccountStore, preferences: Preferences, reader: BarcodeRe
     fun save(result: CaptureResult) {
         when (result) {
             is CaptureResult.Saved -> scope.launch {
-                store.add(result.fields)
+                store.add(result.account)
                 reload()
                 context.vibrate()
                 navController.popBackStack()
@@ -119,20 +119,27 @@ private fun App(store: AccountStore, preferences: Preferences, reader: BarcodeRe
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch { save(acceptPayloads(reader.read(context, uri))) }
     }
-    val exportFile = rememberLauncherForActivityResult(CreateDocument("text/plain")) { uri ->
+    val exportFile = rememberLauncherForActivityResult(CreateDocument("application/json")) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
+        val backup = exportBackupJson(accounts.map { it.toAccount() })
         context.contentResolver.openOutputStream(uri)?.use { stream ->
-            stream.write(backupText(accounts).toByteArray())
+            stream.write(backup.toByteArray())
         }
     }
     val importFile = rememberLauncherForActivityResult(OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText().orEmpty()
-            val (accepted, skipped) = classifyBackup(text)
-            accepted.forEach { store.add(it) }
+            // 1.0 的行文本和任何非 JSON 文件都由 core 判为 BackupFormat，文案已写明期望格式。
+            val imported = try {
+                importBackupJson(text)
+            } catch (error: CoreException.BackupFormat) {
+                message = error.v1
+                return@launch
+            }
+            imported.accounts.forEach { store.add(it) }
             reload()
-            message = "保存 ${accepted.size} 个，跳过 $skipped 行"
+            message = "保存 ${imported.accounts.size} 个，跳过 ${imported.skipped} 个"
         }
     }
     val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -162,7 +169,8 @@ private fun App(store: AccountStore, preferences: Preferences, reader: BarcodeRe
         setGrouped = { scope.launch { preferences.setGrouped(it) } },
         setAllowScreenshots = { scope.launch { preferences.setAllowScreenshots(it) } },
         export = { confirmExport = true },
-        import = { importFile.launch(arrayOf("text/plain")) },
+        // 备份文件的 MIME 因来源而异，别按类型过滤把它挡在文件选择器外。
+        import = { importFile.launch(arrayOf("*/*")) },
         consumeMessage = { message = null },
         report = { message = it },
     )
@@ -200,7 +208,7 @@ private fun App(store: AccountStore, preferences: Preferences, reader: BarcodeRe
             confirmButton = {
                 TextButton(onClick = {
                     confirmExport = false
-                    exportFile.launch("totp-backup.txt")
+                    exportFile.launch("totp-backup.json")
                 }) { Text("导出") }
             },
             dismissButton = {
@@ -212,7 +220,7 @@ private fun App(store: AccountStore, preferences: Preferences, reader: BarcodeRe
 }
 
 private fun copyCode(context: Context, account: StoredAccount, now: Long, autoClear: Boolean, scope: kotlinx.coroutines.CoroutineScope) {
-    val code = totp(Secret(account.secret), now, account.algorithm, account.digits, account.period.toLong())
+    val code = generateCode(account.toAccount(), now).code
     val clipboard = context.getSystemService(ClipboardManager::class.java)
     clipboard.setPrimaryClip(ClipData.newPlainText("totp", code))
     if (!autoClear) return
@@ -227,8 +235,6 @@ private fun copyCode(context: Context, account: StoredAccount, now: Long, autoCl
         }
     }
 }
-
-private fun backupText(accounts: List<StoredAccount>) = otpauthBackup(accounts.map { it.toAccount() })
 
 private fun Context.vibrate() {
     getSystemService(Vibrator::class.java).vibrate(VibrationEffect.createOneShot(40, VibrationEffect.DEFAULT_AMPLITUDE))

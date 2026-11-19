@@ -2,33 +2,6 @@ import Foundation
 import Testing
 import TOTPCore
 
-@Test func displayPartsDecodesPlus() {
-    let parts = displayParts(siteName: "Spot+Auth+Lab", username: "")
-    #expect(parts.title == "Spot Auth Lab")
-    #expect(parts.subtitle == nil)
-}
-
-@Test func displayPartsDecodesPercentEscapes() {
-    #expect(displayParts(siteName: "Spot%20Auth", username: "").title == "Spot Auth")
-}
-
-@Test func displayPartsSplitsOnFirstColon() {
-    let parts = displayParts(siteName: "OpenAI:ada@example.com", username: "")
-    #expect(parts.title == "OpenAI")
-    #expect(parts.subtitle == "ada@example.com")
-}
-
-@Test func displayPartsKeepsUsernameAsSubtitle() {
-    let parts = displayParts(siteName: "GitHub", username: "ada")
-    #expect(parts.title == "GitHub")
-    #expect(parts.subtitle == "ada")
-}
-
-@Test func formattedCodeGroupsSixDigits() {
-    #expect(formattedCode("404162") == "404 162")
-    #expect(formattedCode("12345678") == "12345678")
-}
-
 @Test func renameAccountPersistsSplitName() throws {
     let repository = MemoryMetadataRepository()
     repository.save(AccountMetadata(id: "a", siteName: "GitHub", username: "ada", algorithm: .sha1, digits: 6, period: 30))

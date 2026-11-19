@@ -14,7 +14,7 @@ enum ScreenScanError: Error {
 
 @MainActor
 enum ScreenQRScanner {
-    static func scan() async throws -> OtpauthFields {
+    static func scan() async throws -> ParsedAccount {
         guard CGPreflightScreenCaptureAccess() else {
             promptForPermission()
             throw ScreenScanError.permission
@@ -22,7 +22,7 @@ enum ScreenQRScanner {
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
         var payloads: [String] = []
         for display in content.displays { payloads += try await capture(display) }
-        let parsed = payloads.compactMap { try? parseOtpauth($0) }
+        let parsed = payloads.compactMap { try? parseOtpauthUri(uri: $0) }
         guard parsed.count == 1 else {
             throw parsed.isEmpty ? (payloads.isEmpty ? ScreenScanError.none : ScreenScanError.invalid) : ScreenScanError.many
         }

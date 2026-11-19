@@ -97,7 +97,7 @@ struct AddAccountForm: View {
     private var secretMessage: String? {
         let trimmed = secret.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        return (try? decodeBase32(secret)) == nil ? "Secret 不是有效的 Base32" : nil
+        return (try? SecretText.decode(trimmed)) == nil ? "Secret 不是有效的 Base32" : nil
     }
 
     private func paste() {
@@ -110,15 +110,14 @@ struct AddAccountForm: View {
     private func applyOtpauthIfPresent(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.lowercased().hasPrefix("otpauth://"),
-              let fields = try? parseOtpauth(trimmed),
-              (try? decodeBase32(fields.secret)) != nil else { return }
+              let parsed = try? parseOtpauthUri(uri: trimmed) else { return }
         if displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            displayName = fields.name
+            displayName = accountDisplayName(parsed)
         }
-        secret = fields.secret
-        algorithm = fields.algorithm
-        digits = fields.digits
-        period = fields.period
+        secret = SecretText.encode(parsed.secret)
+        algorithm = parsed.algorithm
+        digits = Int(parsed.digits)
+        period = Int(parsed.period)
     }
 }
 

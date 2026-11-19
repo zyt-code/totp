@@ -93,14 +93,14 @@ fun SettingsScreen(model: HomeModel, onBack: () -> Unit) {
                     ActionRow(
                         icon = Icons.Outlined.FileUpload,
                         title = "导出备份",
-                        subtitle = "写入 otpauth:// 文本，可与 macOS 互通",
+                        subtitle = "写入 JSON 备份，可与 macOS 互通",
                         onClick = model.export,
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     ActionRow(
                         icon = Icons.Outlined.FileDownload,
                         title = "导入备份",
-                        subtitle = "逐行读取 otpauth:// 文本，坏行自动跳过",
+                        subtitle = "读取 JSON 备份，坏条目自动跳过",
                         onClick = model.import,
                     )
                 }

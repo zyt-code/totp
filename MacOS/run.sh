@@ -14,6 +14,10 @@ for arg in "$@"; do
     esac
 done
 
+echo "==> 构建共享 Rust core..."
+# 产物（xcframework + 生成的 Swift 绑定）不入库；工具链缺失时让脚本自己的报错原样透出。
+../core/scripts/build-macos.sh
+
 echo "==> 编译 TOTPApp（${CONFIG}）..."
 swift build -c "$CONFIG" --product TOTPApp
 
@@ -45,6 +49,10 @@ cat <<'PLIST' > "$CONTENTS/Info.plist"
     <string>local.totp.TOTPApp</string>
     <key>CFBundleName</key>
     <string>TOTPApp</string>
+    <key>CFBundleShortVersionString</key>
+    <string>2.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>2.0.0</string>
     <key>CFBundleExecutable</key>
     <string>TOTPApp</string>
     <key>CFBundleIconFile</key>

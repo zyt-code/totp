@@ -10,8 +10,8 @@ import TOTPCore
     #expect(shouldClearClipboard(current: nil, copied: "404162") == false)
 }
 
-@Test func groupedCodeHonoursPreference() {
-    #expect(formattedCode("404162", grouped: true) == "404 162")
-    #expect(formattedCode("404162", grouped: false) == "404162")
-    #expect(formattedCode("12345678", grouped: true) == "12345678")
+@Test func sixDigitCodeIsGroupedWhenEnabled() {
+    #expect(groupedCode("404162", grouped: true) == "404 162")
+    #expect(groupedCode("404162", grouped: false) == "404162")
+    #expect(groupedCode("12345678", grouped: true) == "12345678")
 }

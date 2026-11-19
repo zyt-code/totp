@@ -82,9 +82,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.totp.core.Secret
+import app.totp.core.ffi.OtpCodeResult
+import app.totp.core.ffi.generateCodesBatch
 import kotlinx.coroutines.delay
-import app.totp.core.totp
 
 /** 莫兰迪色系，按服务商名称稳定取色。 */
 private val MorandiPalette = listOf(
@@ -127,6 +127,11 @@ fun HomeScreen(model: HomeModel, onScan: () -> Unit, onOpenSettings: () -> Unit)
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val haptics = LocalHapticFeedback.current
+
+    // 每秒只跨一次边界：全部验证码一次算完。
+    val codes = remember(model.accounts, model.now) {
+        generateCodesBatch(model.accounts.map { it.toAccount() }, model.now).associateBy { it.id }
+    }
 
     val visible = remember(model.accounts, query) {
         if (query.isBlank()) model.accounts
@@ -251,7 +256,7 @@ fun HomeScreen(model: HomeModel, onScan: () -> Unit, onOpenSettings: () -> Unit)
                         modifier = Modifier.animateItem(),
                         account = account,
                         grouped = model.grouped,
-                        now = model.now,
+                        code = codes[account.id],
                         copied = copiedId == account.id,
                         onClick = {
                             model.copy(account)
@@ -343,15 +348,14 @@ private fun AccountCard(
     modifier: Modifier = Modifier,
     account: StoredAccount,
     grouped: Boolean,
-    now: Long,
+    code: OtpCodeResult?,
     copied: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
     val (title, subtitle) = account.labels
-    val period = account.period.toLong()
-    val left = period - now % period
-    val code = totp(Secret(account.secret), now, account.algorithm, account.digits, period)
+    val period = (code?.period ?: account.period).toLong()
+    val left = (code?.remainingSeconds ?: 0).toLong()
     val accent by animateColorAsState(
         if (expiring(left)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
         label = "countdown-color",
@@ -372,7 +376,7 @@ private fun AccountCard(
                     maxLines = 1,
                     overflow = TextOverflow.MiddleEllipsis,
                 )
-                if (subtitle.isNotEmpty()) {
+                if (!subtitle.isNullOrEmpty()) {
                     Text(
                         subtitle,
                         style = MaterialTheme.typography.bodySmall,
@@ -395,7 +399,7 @@ private fun AccountCard(
                     if (justCopied) {
                         Text("已复制", style = codeStyle, color = MaterialTheme.colorScheme.primary)
                     } else {
-                        Text(formatCode(code, grouped), style = codeStyle, color = accent)
+                        Text(formatCode(code?.code.orEmpty(), grouped), style = codeStyle, color = accent)
                     }
                 }
             }

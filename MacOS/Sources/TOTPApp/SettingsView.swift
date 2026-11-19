@@ -38,7 +38,7 @@ struct SettingsView: View {
                 Toggle("验证码分段显示", isOn: $groupCodes)
             }
             Section("数据与关于") {
-                Button("导出备份（otpauth URI 列表）", action: exportBackup)
+                Button("导出备份（JSON）", action: exportBackup)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(AppInfo.name) v\(AppInfo.version)")
                     Text(AppInfo.storageStatus)
@@ -76,18 +76,18 @@ struct SettingsView: View {
 
         let confirm = NSAlert()
         confirm.messageText = "导出备份"
-        confirm.informativeText = "将导出 \(accounts.count) 个账户的 otpauth URI。备份包含密钥，请妥善保管。"
+        confirm.informativeText = "将导出 \(accounts.count) 个账户的 JSON 备份。备份包含密钥，请妥善保管。"
         confirm.addButton(withTitle: "继续")
         confirm.addButton(withTitle: "取消")
         guard confirm.runModal() == .alertFirstButtonReturn else { return }
 
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = "totp-backup.txt"
-        panel.allowedContentTypes = [.plainText]
+        panel.nameFieldStringValue = "totp-backup.json"
+        panel.allowedContentTypes = [.json]
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         do {
-            try otpauthBackup(accounts: accounts).write(to: url, atomically: true, encoding: .utf8)
+            try exportBackupJson(accounts: accounts.map(\.params)).write(to: url, atomically: true, encoding: .utf8)
         } catch {
             presentAlert("导出失败", error.localizedDescription)
         }

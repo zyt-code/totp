@@ -10,12 +10,11 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import app.totp.core.Account
-import app.totp.core.HashAlgorithm
-import app.totp.core.OtpauthFields
-import app.totp.core.decodeBase32
-import app.totp.core.accountLabels
-import app.totp.core.splitName
+import app.totp.core.ffi.AccountParams
+import app.totp.core.ffi.DisplayTitle
+import app.totp.core.ffi.HashAlgorithm
+import app.totp.core.ffi.ParsedAccount
+import app.totp.core.ffi.displayTitle
 import com.google.crypto.tink.Aead
 import com.google.crypto.tink.KeyTemplates
 import com.google.crypto.tink.RegistryConfiguration
@@ -104,16 +103,16 @@ class AccountStore(context: Context, private val database: AccountDatabase) {
         }
     }
 
-    suspend fun add(fields: OtpauthFields) {
-        val (siteName, username) = splitName(fields.name)
-        save(UUID.randomUUID().toString(), siteName, username, decodeBase32(fields.secret), fields.algorithm, fields.digits, fields.period)
+    suspend fun add(parsed: ParsedAccount) {
+        val (siteName, username) = labels(parsed.issuer, parsed.accountName)
+        save(UUID.randomUUID().toString(), siteName, username, parsed.secret, parsed.algorithm, parsed.digits, parsed.period)
     }
 
     suspend fun rename(id: String, name: String): Boolean {
         if (name.isBlank()) return false
         val current = database.accounts().byId(id) ?: return false
-        val (siteName, username) = splitName(name)
-        database.accounts().save(current.copy(siteName = siteName, username = username))
+        val parsed = displayTitle(name.trim(), "")
+        database.accounts().save(current.copy(siteName = parsed.title, username = parsed.subtitle.orEmpty()))
         return true
     }
 
@@ -136,6 +135,13 @@ class AccountStore(context: Context, private val database: AccountDatabase) {
         database.accounts().saveSecret(SecretRow(id, aead.encrypt(secret, id.toByteArray())))
     }
 
+    /** 没有 issuer 的 URI 只给了标签：交给 core 的展示规则拆出账号，与 1.0 存下的两列一致。 */
+    private fun labels(issuer: String, accountName: String): Pair<String, String> {
+        if (issuer.isNotBlank()) return issuer to accountName
+        val title = displayTitle(accountName, "")
+        return title.title to title.subtitle.orEmpty()
+    }
+
     companion object {
         fun create(context: Context) = AccountStore(
             context.applicationContext,
@@ -153,8 +159,9 @@ data class StoredAccount(
     val digits: Int,
     val period: Int,
 ) {
-    fun toAccount() = Account(siteName, username, secret, algorithm, digits, period)
-    /** 兼容历史数据：站点里带 "Issuer:Account" 且账号列重复时，标题只留 Issuer。 */
-    val labels: Pair<String, String> get() = accountLabels(siteName, username)
-    val displayName: String get() = labels.toList().filter { it.isNotEmpty() }.joinToString(" ")
+    fun toAccount() = AccountParams(id, siteName, username, secret, algorithm, digits, period)
+    /** 卡片标题与副标题，规则来自共享核心（兼容站点里带 "Issuer:Account" 的历史数据）。 */
+    val labels: DisplayTitle get() = displayTitle(siteName, username)
+    val displayName: String
+        get() = listOf(labels.title, labels.subtitle.orEmpty()).filter { it.isNotEmpty() }.joinToString(" ")
 }
