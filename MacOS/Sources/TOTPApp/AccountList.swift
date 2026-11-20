@@ -20,6 +20,9 @@ struct AccountList: View {
     @State private var renaming: TOTPAccount?
     @State private var renameText = ""
     @State private var deleting: TOTPAccount?
+    @State private var copyResetTask: Task<Void, Never>?
+
+    private static let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         let codes = codes(at: tick)
@@ -47,7 +50,8 @@ struct AccountList: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
         }
-        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { date in
+        .onAppear { tick = Date() }
+        .onReceive(Self.timer) { date in
             tick = date
         }
         .alert("重命名账户", isPresented: renamePresented) {
@@ -204,11 +208,14 @@ struct AccountList: View {
         copiedID = id
         let autoClear = clipboardAutoClear
         let delay = max(clipboardClearDelay, 2)
-        Task { @MainActor in
+        copyResetTask?.cancel()
+        copyResetTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
             if copiedID == id { copiedID = nil }
             guard autoClear else { return }
             try? await Task.sleep(for: .seconds(delay - 2))
+            guard !Task.isCancelled else { return }
             if shouldClearClipboard(current: clipboard.read(), copied: code) {
                 clipboard.clear()
             }
