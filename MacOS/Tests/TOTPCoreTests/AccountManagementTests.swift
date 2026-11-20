@@ -17,7 +17,7 @@ import TOTPCore
     #expect(throws: AppError.blankSiteName) {
         try renameAccount(id: "a", name: "   ", metadata: repository)
     }
-    #expect(try repository.list().first?.siteName == "GitHub")
+    #expect(repository.list().first?.siteName == "GitHub")
 }
 
 @Test func deleteAccountRemovesSecretAndMetadata() throws {

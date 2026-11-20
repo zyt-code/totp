@@ -117,24 +117,53 @@ private fun App(store: AccountStore, preferences: Preferences, reader: BarcodeRe
 
     val gallery = rememberLauncherForActivityResult(PickVisualMedia()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch { save(acceptPayloads(reader.read(context, uri))) }
+        scope.launch {
+            val payloads = try {
+                reader.read(context, uri)
+            } catch (e: Exception) {
+                message = "无法读取所选图片: ${e.localizedMessage ?: "未知错误"}"
+                return@launch
+            }
+            save(acceptPayloads(payloads))
+        }
     }
     val exportFile = rememberLauncherForActivityResult(CreateDocument("application/json")) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        val backup = exportBackupJson(accounts.map { it.toAccount() })
-        context.contentResolver.openOutputStream(uri)?.use { stream ->
-            stream.write(backup.toByteArray())
+        try {
+            val backup = exportBackupJson(accounts.map { it.toAccount() })
+            val stream = context.contentResolver.openOutputStream(uri)
+            if (stream == null) {
+                message = "无法打开导出目标文件"
+                return@rememberLauncherForActivityResult
+            }
+            stream.use { it.write(backup.toByteArray(Charsets.UTF_8)) }
+            message = "备份导出成功"
+        } catch (e: Exception) {
+            message = "导出失败: ${e.localizedMessage ?: "未知错误"}"
         }
     }
     val importFile = rememberLauncherForActivityResult(OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
-            val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText().orEmpty()
+            val text = try {
+                val stream = context.contentResolver.openInputStream(uri)
+                if (stream == null) {
+                    message = "无法打开备份文件"
+                    return@launch
+                }
+                stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            } catch (e: Exception) {
+                message = "读取备份文件失败: ${e.localizedMessage ?: "未知错误"}"
+                return@launch
+            }
             // 1.0 的行文本和任何非 JSON 文件都由 core 判为 BackupFormat，文案已写明期望格式。
             val imported = try {
                 importBackupJson(text)
             } catch (error: CoreException.BackupFormat) {
                 message = error.v1
+                return@launch
+            } catch (error: Exception) {
+                message = "解析备份失败: ${error.localizedMessage ?: "未知错误"}"
                 return@launch
             }
             imported.accounts.forEach { store.add(it) }
@@ -192,6 +221,8 @@ private fun App(store: AccountStore, preferences: Preferences, reader: BarcodeRe
         }
         composable(Routes.Scan) {
             ScanScreen(
+                message = message,
+                consumeMessage = { message = null },
                 onResult = ::save,
                 onPickImage = ::pickImage,
                 onBack = { navController.popBackStack() },

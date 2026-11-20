@@ -456,7 +456,7 @@ private fun CountdownRing(secondsLeft: Long, period: Long, color: Color) {
 @Composable
 private fun AccountMenu(account: StoredAccount, onDismiss: () -> Unit, onRename: (String) -> Unit, onDelete: () -> Unit) {
     var renaming by remember { mutableStateOf(false) }
-    var name by remember { mutableStateOf(account.displayName) }
+    var name by remember { mutableStateOf(account.rawName) }
     if (renaming) {
         AlertDialog(
             onDismissRequest = onDismiss,

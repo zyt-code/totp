@@ -79,6 +79,16 @@ class AccountStoreTest {
     }
 
     @Test
+    fun renameWithColonAndRepeatedTokens() = runBlocking {
+        store.add(parsed())
+        val id = store.accounts().single().id
+        assertEquals(true, store.rename(id, "Work:Org ada ada"))
+        val loaded = store.accounts().single()
+        assertEquals("Work:Org", loaded.siteName)
+        assertEquals("ada ada", loaded.username)
+    }
+
+    @Test
     fun listingKeepsInsertionOrder() = runBlocking {
         store.add(parsed(issuer = "First", accountName = ""))
         store.add(parsed(issuer = "Second", accountName = ""))

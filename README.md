@@ -1,4 +1,4 @@
-# TOTP (v2.0.0)
+# TOTP (v2.0.1)
 
 跨平台 TOTP（时间型一次性密码）认证器。macOS 菜单栏客户端与 Android 应用共用同一份 Rust 核心：算法、Base32、`otpauth://` 解析和备份序列化只有一份实现。
 

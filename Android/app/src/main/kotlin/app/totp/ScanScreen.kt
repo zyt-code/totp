@@ -26,6 +26,8 @@ import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,13 +59,36 @@ import com.google.mlkit.vision.common.InputImage
 
 @androidx.annotation.OptIn(ExperimentalGetImage::class)
 @Composable
-fun ScanScreen(onResult: (CaptureResult) -> Unit, onPickImage: () -> Unit, onBack: () -> Unit) {
+fun ScanScreen(
+    message: String? = null,
+    consumeMessage: () -> Unit = {},
+    onResult: (CaptureResult) -> Unit,
+    onPickImage: () -> Unit,
+    onBack: () -> Unit,
+) {
     BackHandler(onBack = onBack)
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scanner = remember { BarcodeScanning.getClient() }
     DisposableEffect(Unit) { onDispose { scanner.close() } }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    var pendingMessage by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(message) {
+        if (message != null) {
+            pendingMessage = message
+            consumeMessage()
+        }
+    }
+    LaunchedEffect(pendingMessage) {
+        val current = pendingMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(current)
+        if (pendingMessage == current) {
+            pendingMessage = null
+        }
+    }
+
+    var isProcessing by remember { mutableStateOf(false) }
     var camera by remember { mutableStateOf<Camera?>(null) }
     var provider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
     var torchOn by remember { mutableStateOf(false) }
@@ -88,9 +113,16 @@ fun ScanScreen(onResult: (CaptureResult) -> Unit, onPickImage: () -> Unit, onBac
                                 } else {
                                     scanner.process(InputImage.fromMediaImage(media, image.imageInfo.rotationDegrees))
                                         .addOnSuccessListener { codes ->
+                                            if (isProcessing) return@addOnSuccessListener
                                             val payloads = codes.mapNotNull { it.rawValue }
                                             // 无码帧保持安静，只有识别到内容才反馈。
-                                            if (payloads.isNotEmpty()) onResult(acceptPayloads(payloads))
+                                            if (payloads.isNotEmpty()) {
+                                                val result = acceptPayloads(payloads)
+                                                if (result is CaptureResult.Saved) {
+                                                    isProcessing = true
+                                                }
+                                                onResult(result)
+                                            }
                                         }
                                         .addOnCompleteListener { image.close() }
                                 }
@@ -124,6 +156,14 @@ fun ScanScreen(onResult: (CaptureResult) -> Unit, onPickImage: () -> Unit, onBac
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = Color.White)
             }
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 124.dp),
+        )
 
         Text(
             "将二维码放入框内",

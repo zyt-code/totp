@@ -29,4 +29,12 @@ class DisplayTest {
         assertFalse(shouldClear("404162", "other"))
         assertFalse(shouldClear("404162", null))
     }
+
+    @Test
+    fun renameSplitsOnFirstSpaceWithoutColonParsingOrTokenCollapsing() {
+        assertEquals("Work:Org" to "ada ada", AccountStore.splitName("Work:Org ada ada"))
+        assertEquals("SingleWord" to "", AccountStore.splitName("SingleWord"))
+        assertEquals("A:B:C" to "D E", AccountStore.splitName("A:B:C D E"))
+        assertEquals(null, AccountStore.splitName("   "))
+    }
 }

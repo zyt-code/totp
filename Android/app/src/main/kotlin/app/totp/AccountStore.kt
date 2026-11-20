@@ -10,6 +10,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.withTransaction
 import app.totp.core.ffi.AccountParams
 import app.totp.core.ffi.DisplayTitle
 import app.totp.core.ffi.HashAlgorithm
@@ -109,16 +110,17 @@ class AccountStore(context: Context, private val database: AccountDatabase) {
     }
 
     suspend fun rename(id: String, name: String): Boolean {
-        if (name.isBlank()) return false
+        val (siteName, username) = splitName(name) ?: return false
         val current = database.accounts().byId(id) ?: return false
-        val parsed = displayTitle(name.trim(), "")
-        database.accounts().save(current.copy(siteName = parsed.title, username = parsed.subtitle.orEmpty()))
+        database.accounts().save(current.copy(siteName = siteName, username = username))
         return true
     }
 
     suspend fun delete(id: String) {
-        database.accounts().delete(id)
-        database.accounts().deleteSecret(id)
+        database.withTransaction {
+            database.accounts().delete(id)
+            database.accounts().deleteSecret(id)
+        }
     }
 
     private suspend fun save(
@@ -130,9 +132,11 @@ class AccountStore(context: Context, private val database: AccountDatabase) {
         digits: Int,
         period: Int,
     ) {
-        val position = database.accounts().maxPosition() + 1
-        database.accounts().save(AccountRow(id, siteName, username, algorithm.name, digits, period, position))
-        database.accounts().saveSecret(SecretRow(id, aead.encrypt(secret, id.toByteArray())))
+        database.withTransaction {
+            val position = database.accounts().maxPosition() + 1
+            database.accounts().save(AccountRow(id, siteName, username, algorithm.name, digits, period, position))
+            database.accounts().saveSecret(SecretRow(id, aead.encrypt(secret, id.toByteArray())))
+        }
     }
 
     /** 没有 issuer 的 URI 只给了标签：交给 core 的展示规则拆出账号，与 1.0 存下的两列一致。 */
@@ -143,6 +147,15 @@ class AccountStore(context: Context, private val database: AccountDatabase) {
     }
 
     companion object {
+        fun splitName(name: String): Pair<String, String>? {
+            val trimmed = name.trim()
+            if (trimmed.isEmpty()) return null
+            val parts = trimmed.split(" ", limit = 2)
+            val siteName = parts[0]
+            val username = if (parts.size > 1) parts[1] else ""
+            return siteName to username
+        }
+
         fun create(context: Context) = AccountStore(
             context.applicationContext,
             Room.databaseBuilder(context.applicationContext, AccountDatabase::class.java, "accounts.db").build(),
@@ -164,4 +177,7 @@ data class StoredAccount(
     val labels: DisplayTitle get() = displayTitle(siteName, username)
     val displayName: String
         get() = listOf(labels.title, labels.subtitle.orEmpty()).filter { it.isNotEmpty() }.joinToString(" ")
+    /** 原始名称，未经 DisplayTitle 规则归一化或折叠，用于重命名弹窗初始回显。 */
+    val rawName: String
+        get() = if (username.isEmpty()) siteName else "$siteName $username"
 }

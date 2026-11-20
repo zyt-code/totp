@@ -22,7 +22,7 @@ The gear button MUST open one detached settings window about 440 points wide tha
 
 ### Requirement: Launch at login
 
-The "登录时自动启动" switch MUST register or unregister the main app with `SMAppService` and MUST show the current registration status when the window opens. A failed registration MUST surface a readable message instead of silently reverting.
+The "登录时自动启动" switch MUST register or unregister the main app with `SMAppService` and MUST show the current registration status when the window opens. A failed registration MUST surface a readable message instead of silently reverting, and reverting the switch to the actual state MUST NOT trigger secondary unregister calls or overwrite the displayed failure message.
 
 #### Scenario: Enabling registers the app
 
@@ -37,7 +37,7 @@ The "登录时自动启动" switch MUST register or unregister the main app with
 #### Scenario: Failure is reported
 
 - **WHEN** registration fails
-- **THEN** the window shows a readable message and the switch returns to the actual state
+- **THEN** the window displays a readable message and the switch returns to the actual state without clearing the message
 
 ### Requirement: Clipboard auto-clear preference
 

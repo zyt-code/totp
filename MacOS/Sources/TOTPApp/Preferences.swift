@@ -13,6 +13,6 @@ enum SettingKey {
 
 enum AppInfo {
     static let name = "TOTP"
-    static let version = "2.0.0"
+    static let version = "2.0.1"
     static let storageStatus = "本地 Keychain 加密存储 · 零网络权限"
 }

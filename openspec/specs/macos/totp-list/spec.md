@@ -82,19 +82,9 @@ Clicking anywhere on an account row MUST copy that row's current TOTP to the sys
 - **WHEN** the user replaces the clipboard before the clear time
 - **THEN** the app leaves the replacement in place
 
-### Requirement: Display name normalization
+### Requirement: Display name formatting
 
-Row titles MUST decode URL-encoded text: `+` becomes a space and percent escapes are resolved. When the title contains a colon and no subtitle exists, the text MUST split at the first colon into title and subtitle. Titles and subtitles MUST be trimmed of surrounding whitespace.
-
-#### Scenario: Plus decoded as space
-
-- **WHEN** the stored site name is "Spot+Auth+Lab"
-- **THEN** the row title is "Spot Auth Lab"
-
-#### Scenario: Percent escapes resolved
-
-- **WHEN** the stored site name is "Spot%20Auth"
-- **THEN** the row title is "Spot Auth"
+Row titles and subtitles MUST be derived following the display name normalization rule defined in `totp-core`: split at the first colon when it is not the first character, otherwise fall back to the first space. A non-empty stored account name MUST be used as subtitle, and repeated tokens in the subtitle MUST be collapsed. Titles and subtitles MUST be trimmed of surrounding whitespace.
 
 #### Scenario: Colon splits title and subtitle
 

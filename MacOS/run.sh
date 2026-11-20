@@ -50,9 +50,9 @@ cat <<'PLIST' > "$CONTENTS/Info.plist"
     <key>CFBundleName</key>
     <string>TOTPApp</string>
     <key>CFBundleShortVersionString</key>
-    <string>2.0.0</string>
+    <string>2.0.1</string>
     <key>CFBundleVersion</key>
-    <string>2.0.0</string>
+    <string>2.0.1</string>
     <key>CFBundleExecutable</key>
     <string>TOTPApp</string>
     <key>CFBundleIconFile</key>
